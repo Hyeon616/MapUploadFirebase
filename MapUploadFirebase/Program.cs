@@ -1,12 +1,7 @@
-﻿using System;
-using System.IO;
-using System.Collections.Generic;
-using Newtonsoft.Json;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
-using DocumentFormat.OpenXml.Packaging;
+﻿using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Newtonsoft.Json;
+using System.Text;
 
 class Program
 {
@@ -90,20 +85,7 @@ class Program
 
     static Dictionary<string, object> ProcessWorksheet(WorksheetPart worksheetPart)
     {
-        if (worksheetPart == null || worksheetPart.Worksheet == null)
-        {
-            throw new ArgumentNullException(nameof(worksheetPart), "WorksheetPart or Worksheet is null");
-        }
-
-        var cells = worksheetPart.Worksheet.Descendants<Cell>().ToList();
-        if (cells == null || !cells.Any())
-        {
-            throw new InvalidOperationException("No cells found in the worksheet");
-        }
-
-        var sharedStringPart = worksheetPart.GetParentParts().OfType<SharedStringTablePart>().FirstOrDefault();
-
-        string mapSizeValue = GetCellValue(cells, "A1", sharedStringPart);
+        string mapSizeValue = GetCellValue(worksheetPart, "A1");
         if (string.IsNullOrEmpty(mapSizeValue))
         {
             throw new InvalidOperationException("Cell A1 is empty or not found");
@@ -120,12 +102,6 @@ class Program
         }
 
         var map = new List<List<string>>();
-        var validValues = new HashSet<string>
-        {
-            "C1", "C2", "C3", "H1", "H2", "H3", "O1", "O2",
-            "HAM", "CAT", "DOG", "OTT", "PEN", "RAC", "CLO", "BLU", "SEA", "TUR", "FOX", "KAN", "ARM", "OST", "LIO", "WAR", "MEE", "CAP", "MON", "JAG", "PAR", "TOU", "RAB", "POL", "ARC", "SEL",
-            "FHAM", "FCAT", "FDOG", "FOTT", "FPEN", "FRAC", "FCLO", "FBLU", "FSEA", "FTUR", "FFOX", "FKAN", "FARM", "FOST", "FLIO", "FWAR", "FMEE", "FCAP", "FMON", "FJAG", "FPAR", "FTOU", "FRAB", "FPOL", "FARC", "FSEL"
-        };
 
         for (int i = 2; i <= mapSize + 1; i++)
         {
@@ -133,26 +109,19 @@ class Program
             for (int j = 1; j <= mapSize; j++)
             {
                 string cellReference = GetCellReference(i, j);
-                string cellValue = GetCellValue(cells, cellReference, sharedStringPart);
-
-                if (string.IsNullOrEmpty(cellValue))
-                {
-                    throw new Exception($"Empty cell at [{i}, {j}]");
-                }
-                if (!validValues.Contains(cellValue))
-                {
-                    throw new Exception($"Invalid value '{cellValue}' at cell [{i}, {j}]");
-                }
+                string cellValue = GetCellValue(worksheetPart, cellReference);
                 row.Add(cellValue);
+                Console.WriteLine($"Debug: Cell {cellReference} value: '{cellValue}'");
+                
             }
             map.Add(row);
         }
 
         return new Dictionary<string, object>
-        {
-            {"size", mapSize},
-            {"map", map}
-        };
+    {
+        {"size", mapSize},
+        {"map", map}
+    };
     }
 
     static string GetCellReference(int row, int column)
@@ -167,23 +136,52 @@ class Program
         return columnLetter + row;
     }
 
-    static string GetCellValue(IEnumerable<Cell> cells, string cellReference, SharedStringTablePart sharedStringPart)
+    static string GetCellValue(WorksheetPart worksheetPart, string cellReference)
     {
-        var cell = cells.FirstOrDefault(c => c.CellReference == cellReference);
+        var cell = worksheetPart.Worksheet.Descendants<Cell>().FirstOrDefault(c => c.CellReference == cellReference);
+
+        if (cell == null)
+        {
+            Console.WriteLine($"Debug: Cell {cellReference} not found");
+            return string.Empty;
+        }
+
+        string value = GetActualCellValue(cell, worksheetPart);
+
+        Console.WriteLine($"Debug: Cell {cellReference} value: '{value}'");
+        return value;
+    }
+
+    static string GetActualCellValue(Cell cell, WorksheetPart worksheetPart)
+    {
         if (cell == null)
         {
             return string.Empty;
         }
 
-        string value = cell.InnerText;
+        // SharedString 처리
         if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
         {
-            if (sharedStringPart?.SharedStringTable != null)
+            var stringTable = worksheetPart.GetParentParts().OfType<WorkbookPart>().FirstOrDefault()?.SharedStringTablePart?.SharedStringTable;
+            if (stringTable != null)
             {
-                return sharedStringPart.SharedStringTable.ElementAt(int.Parse(value)).InnerText;
+                return stringTable.ElementAt(int.Parse(cell.InnerText)).InnerText;
             }
         }
-        return value;
+
+        // 수식 처리
+        if (cell.CellFormula != null)
+        {
+            return $"={cell.CellFormula.Text}";
+        }
+
+        // 일반 값 처리
+        if (cell.CellValue != null)
+        {
+            return cell.CellValue.Text;
+        }
+
+        return cell.InnerText ?? string.Empty;
     }
 
     static async Task UploadToFirebase(string chapterName, string jsonData)
