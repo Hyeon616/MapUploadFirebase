@@ -3,10 +3,11 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using Newtonsoft.Json;
 using System.Text;
 
+
 class Program
 {
     private static readonly HttpClient client = new HttpClient();
-    private const string FirebaseUrl = "https://enpconventionproject-default-rtdb.firebaseio.com/";
+    private const string FirebaseUrl = "https://enpconventionproject-5ff8f-default-rtdb.firebaseio.com/";
 
     static async Task Main(string[] args)
     {
@@ -86,9 +87,16 @@ class Program
     static Dictionary<string, object> ProcessWorksheet(WorksheetPart worksheetPart)
     {
         string mapSizeValue = GetCellValue(worksheetPart, "A1");
+        string rotationCountValue = GetCellValue(worksheetPart, "B1");
+
         if (string.IsNullOrEmpty(mapSizeValue))
         {
             throw new InvalidOperationException("Cell A1 is empty or not found");
+        }
+
+        if (string.IsNullOrEmpty(rotationCountValue))
+        {
+            throw new InvalidOperationException("Cell B1 is empty or not found");
         }
 
         if (!int.TryParse(mapSizeValue, out int mapSize))
@@ -96,9 +104,19 @@ class Program
             throw new FormatException($"Invalid map size in cell A1: {mapSizeValue}. It should be a number.");
         }
 
+        if (!int.TryParse(rotationCountValue, out int rotationCount))
+        {
+            throw new FormatException($"Invalid total puzzle rotation count in cell B1: {rotationCountValue}. It should be a number.");
+        }
+
         if (mapSize < 1 || mapSize > 7)
         {
             throw new ArgumentOutOfRangeException(nameof(mapSize), $"Invalid map size: {mapSize}. It should be between 1 and 7.");
+        }
+
+        if (rotationCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(rotationCount), $"Invalid total puzzle rotation count: {rotationCount}. It should be a non-negative integer.");
         }
 
         var map = new List<List<string>>();
@@ -112,16 +130,16 @@ class Program
                 string cellValue = GetCellValue(worksheetPart, cellReference);
                 row.Add(cellValue);
                 Console.WriteLine($"Debug: Cell {cellReference} value: '{cellValue}'");
-                
             }
             map.Add(row);
         }
 
         return new Dictionary<string, object>
-    {
-        {"size", mapSize},
-        {"map", map}
-    };
+        {
+            {"Size", mapSize},
+            {"RotationCount", rotationCount},
+            {"Map", map}
+        };
     }
 
     static string GetCellReference(int row, int column)
