@@ -64,6 +64,25 @@ public class ExcuteExcel
         var mapSize = cellReader.GetIntCellValue("A1", "map size", 1, 7);
         var rotationCount = cellReader.GetIntCellValue("B1", "total puzzle rotation count", 0);
 
+        var blockedCellsString = cellReader.GetCellValue("C1");
+        var blockedCells = new List<string>();
+
+        if (!string.IsNullOrEmpty(blockedCellsString))
+        {
+            var cellReferences = blockedCellsString.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var cellRef in cellReferences)
+            {
+                var trimmedRef = cellRef.Trim();
+                if (char.IsLetter(trimmedRef[0]) && char.IsDigit(trimmedRef[1]))
+                {
+                    int col = trimmedRef[0] - 'A';
+                    int row = int.Parse(trimmedRef.Substring(1)) - 2; // Subtract 2 because map starts from A2
+                    blockedCells.Add($"{row}_{col}");
+                }
+            }
+        }
+
+
         var map = new List<List<string>>();
         for (int row = 2; row <= mapSize + 1; row++)
         {
@@ -81,7 +100,8 @@ public class ExcuteExcel
         {
             {"Size", mapSize},
             {"RotationCount", rotationCount},
-            {"Map", map}
+            {"Map", map},
+            {"Block", blockedCells}
         };
     }
 }
