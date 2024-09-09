@@ -2,12 +2,6 @@
 {
     public static async Task Main(string[] args)
     {
-        if (args.Length == 0)
-        {
-            Console.WriteLine("Please provide the directory path as an argument.");
-            return;
-        }
-
         var logger = new ConsoleLogger();
         var httpClient = new HttpClient();
         var firebaseUrl = "https://enpconventionproject-5ff8f-default-rtdb.firebaseio.com/";
@@ -16,7 +10,21 @@
 
         try
         {
-            await excelProcessor.ProcessExcelFiles(args[0]);
+            if (args.Length < 1)
+            {
+                logger.Log("Please provide the upload type (chapter or answer) as an argument.");
+                return;
+            }
+
+            string uploadType = args[0].ToLower();
+            if (uploadType != "chapter" && uploadType != "answer")
+            {
+                logger.Log("Invalid upload type. Please use either 'chapter' or 'answer'.");
+                return;
+            }
+
+            string currentDirectory = Directory.GetCurrentDirectory();
+            await excelProcessor.ProcessExcelFiles(currentDirectory, uploadType);
         }
         catch (Exception ex)
         {
@@ -24,7 +32,7 @@
             logger.Log($"Stack Trace: {ex.StackTrace}");
         }
 
-        Console.WriteLine("Press any key to exit...");
+        logger.Log("Processing complete. Press any key to exit...");
         Console.ReadKey();
     }
 }

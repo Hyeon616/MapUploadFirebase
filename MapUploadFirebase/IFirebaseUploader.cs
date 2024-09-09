@@ -1,4 +1,5 @@
 ﻿public interface IFirebaseUploader
 {
-    Task UploadToFirebase(string chapterName, string jsonData);
+    Task UploadToFirebaseChapter(string chapterName, string jsonData);
+    Task UploadToFirebaseAnswers(string chapterName, string jsonData);
 }

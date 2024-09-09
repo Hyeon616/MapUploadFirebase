@@ -13,12 +13,31 @@ public class FirebaseUploader : IFirebaseUploader
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task UploadToFirebase(string chapterName, string jsonData)
+    public async Task UploadToFirebaseChapter(string chapterName, string jsonData)
     {
         try
         {
             var content = new StringContent(jsonData, Encoding.UTF8, "application/json");
             var response = await _client.PutAsync($"{_firebaseUrl}chapters/{chapterName}.json", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+                _logger.Log($"Successfully uploaded data for chapter: {chapterName}\nResponse: {responseBody}");
+            else
+                _logger.Log($"Failed to upload data for chapter: {chapterName}. Status: {response.StatusCode}\nResponse: {responseBody}");
+        }
+        catch (Exception ex)
+        {
+            _logger.Log($"Error uploading to Firebase: {ex.Message}\nStack Trace: {ex.StackTrace}");
+        }
+    }
+
+    public async Task UploadToFirebaseAnswers(string chapterName, string jsonData)
+    {
+        try
+        {
+            var content = new StringContent(jsonData, Encoding.UTF8, "application/json");
+            var response = await _client.PutAsync($"{_firebaseUrl}answers/{chapterName}.json", content);
             var responseBody = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
